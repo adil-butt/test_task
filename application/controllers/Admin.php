@@ -45,19 +45,19 @@ class Admin extends CI_Controller {
 				if($this->PersonAddressModel->insertNewAddress($data)) {
 					$this->session->set_flashdata('success', 'Address added successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			} else {
 				$where = array('id' => $this->input->post('pUpdateAddressId'));
 				if($this->PersonAddressModel->updateAddress($data, $where)) {
 					$this->session->set_flashdata('success', 'Address updated successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			}
 		} else {
 			if($this->input->post('pUpdateAddressId')) {
-				$this->session->set_flashdata('success', 'Something went wrong');
+				$this->session->set_flashdata('error', 'Something went wrong');
 			}
 		}
 		if($this->input->post('pUpdateAddressId')) {
@@ -85,8 +85,6 @@ class Admin extends CI_Controller {
 	}
 
 	public function addContactPerson() {
-		/*echo $_POST['makeDefault'];
-		exit;*/
 		$this->form_validation->set_rules('pName', 'Person Name', 'trim|max_length[50]|min_length[3]|required');
 		$this->form_validation->set_rules('pCompany', 'Company Name', 'trim|required|callback_company_name_exists');
 		if($this->form_validation->run() == TRUE) {
@@ -94,12 +92,29 @@ class Admin extends CI_Controller {
 				'person_name' => $this->input->post('pName'),
 				'company_id' => $this->input->post('pCompany'),
 			);
-			$where = array('company_id' =>$this->input->post('pCompany'));
-			if($this->PersonModel->countRows($where) < 1) {
-				$data['default_person'] = 1;
-			} else {
-				if($this->input->post('makeDefault') == 'on') {
+			$where = array(
+				'company_id' => $this->input->post('pCompany'),
+				'default_person' => '1'
+			);
+			if($this->input->post('personId')) {
+				if($this->PersonModel->countRows($where) < 2) {
 					$data['default_person'] = 1;
+				} else {
+					if($this->input->post('makeDefault') == 'on') {
+						$data['default_person'] = 1;
+					} else {
+						$data['default_person'] = 0;
+					}
+				}
+			} else {
+				if($this->PersonModel->countRows($where) < 1) {
+					$data['default_person'] = 1;
+				} else {
+					if($this->input->post('makeDefault') == 'on') {
+						$data['default_person'] = 1;
+					} else {
+						$data['default_person'] = 0;
+					}
 				}
 			}
 			if($this->input->post('personId')) {
@@ -107,18 +122,18 @@ class Admin extends CI_Controller {
 				if($this->PersonModel->updatePerson($data, $where)) {
 					$this->session->set_flashdata('success', 'Person updated successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			} else {
 				if($this->PersonModel->insertNewPerson($data)) {
 					$this->session->set_flashdata('success', 'Person added successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			}
 		} else {
 			if($this->input->post('personId')) {
-				$this->session->set_flashdata('success', 'Something went wrong');
+				$this->session->set_flashdata('error', 'Something went wrong');
 			}
 		}
 		if($this->input->post('personId')) {
@@ -148,25 +163,45 @@ class Admin extends CI_Controller {
 				$data['template'] = 'pages/all_companies';
 				$data['companies'] = $this->CompanyModel->getResult();
 				$this->load->view('template/template', $data);
-			}
-			if($_GET['delete'] == 'delete_person') {
+			} elseif($_GET['delete'] == 'delete_person') {
 				$where = array('id' => $_GET['delete_id']);
-				if($this->PersonModel->deletePerson($where)) {
-					$this->session->set_flashdata('success', 'Person deleted successfully');
+				$row = $this->PersonModel->getResult($where);
+				if($row) {
+					if($row[0]['default_person'] == '1') {
+						$where = array(
+							'company_id' => $row[0]['company_id'],
+							'default_person' => '1'
+						);
+						if($this->PersonModel->countRows($where) < 2) {
+							$this->session->set_flashdata('error', 'Person not deleted. First Make another person as default person');
+						} else {
+							$where = array('id' => $_GET['delete_id']);
+							if($this->PersonModel->deletePerson($where)) {
+								$this->session->set_flashdata('success', 'Person deleted successfully');
+							} else {
+								$this->session->set_flashdata('error', 'Something went wrong');
+							}
+						}
+					} else {
+						if($this->PersonModel->deletePerson($where)) {
+							$this->session->set_flashdata('success', 'Person deleted successfully');
+						} else {
+							$this->session->set_flashdata('error', 'Something went wrong');
+						}
+					}	
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 				$data['title'] = 'Persons';
 				$data['template'] = 'pages/all_persons';
 				$data['persons'] = $this->PersonModel->getResultWithJoin();
 				$this->load->view('template/template', $data);
-			}
-			if($_GET['delete'] == 'delete_address') {
+			} elseif($_GET['delete'] == 'delete_address') {
 				$where = array('id' => $_GET['delete_id']);
 				if($this->PersonAddressModel->deleteAddress($where)) {
 					$this->session->set_flashdata('success', 'Address deleted successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 				$data['title'] = 'Addresses';
 				$data['template'] = 'pages/all_addresses';
@@ -193,18 +228,18 @@ class Admin extends CI_Controller {
 				if($this->CompanyModel->updateCompany($data, $where)) {
 					$this->session->set_flashdata('success', 'Company updated successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			} else {
 				if($this->CompanyModel->insertNewCompany($data)) {
 					$this->session->set_flashdata('success', 'Company created successfully');
 				} else {
-					$this->session->set_flashdata('success', 'Something went wrong');
+					$this->session->set_flashdata('error', 'Something went wrong');
 				}
 			}
 		} else {
 			if($this->input->post('companyId')) {
-				$this->session->set_flashdata('success', 'Something went wrong');
+				$this->session->set_flashdata('error', 'Something went wrong');
 			}
 		}
 		if($this->input->post('companyId')) {
