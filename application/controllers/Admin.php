@@ -267,6 +267,7 @@ class Admin extends CI_Controller {
 	public function index()
 	{
 		$data['title'] = 'Dashboard';
+		$data['companies'] = $this->CompanyModel->getResult();
 		$data['template'] = 'admin/dashboard';
 		$this->load->view('template/template', $data);
 	}
